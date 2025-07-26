@@ -4,6 +4,8 @@ import csv
 import glob
 import base64
 import logging
+import argparse
+import chardet
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -23,6 +25,10 @@ CREDENTIALS_FILE = "credentials.json"
 
 # 検索設定
 SEARCH_SUBJECT = "口座振替"
+VALID_SENDERS = [
+    "post_master@netbk.co.jp",  # 住信SBIネット銀行
+    "@netbk.co.jp",  # 住信SBIネット銀行（ドメイン）
+]
 
 # 正規表現パターン
 ACCOUNT_NAME_PATTERN = r"口座振替先[:：]\s*([\w\W]+?)(?:\n|お申込先)"
@@ -34,18 +40,44 @@ CSV_ENCODING = "utf-8"
 
 
 def get_message_body(payload):
-    """メールの本文を取得する関数"""
+    """メールの本文を取得する関数（文字コード自動判定付き）"""
     body = ""
+    raw_data = None
+    
     if payload.get("body") and payload["body"].get("data"):
-        body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8")
+        raw_data = base64.urlsafe_b64decode(payload["body"]["data"])
     elif payload.get("parts"):
         for part in payload["parts"]:
             if part["mimeType"] == "text/plain":
                 if part["body"].get("data"):
-                    body = base64.urlsafe_b64decode(part["body"]["data"]).decode(
-                        "utf-8"
-                    )
+                    raw_data = base64.urlsafe_b64decode(part["body"]["data"])
                     break
+    
+    if raw_data:
+        # 文字コード自動判定
+        try:
+            detected = chardet.detect(raw_data)
+            encoding = detected.get('encoding', 'utf-8')
+            confidence = detected.get('confidence', 0)
+            
+            if confidence > 0.7:  # 信頼度が70%以上の場合
+                body = raw_data.decode(encoding)
+            else:
+                # フォールバック: 一般的な日本語エンコーディングを試す
+                for enc in ['utf-8', 'iso-2022-jp', 'shift_jis', 'euc-jp']:
+                    try:
+                        body = raw_data.decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+        except Exception as e:
+            logger.warning(f"文字コード判定エラー: {e}")
+            # 最終フォールバック
+            try:
+                body = raw_data.decode('utf-8', errors='ignore')
+            except:
+                body = ""
+    
     return body
 
 
@@ -109,14 +141,18 @@ def load_existing_cache_data(year_month):
     return result_file, result_created_at, result_rows, result_files
 
 
-def display_cached_results(result_file, result_rows):
+def display_cached_results(result_file, result_rows, summary_only=False):
     """キャッシュされた結果を表示する"""
     logger.info(f"{len(result_rows)}件の既存データが見つかりました")
-    print(f"結果({result_file})から取得:")
-    for row in result_rows:
-        print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
     total = sum(float(row["金額"]) for row in result_rows)
-    print(f"今月の口座振替合計：¥{total:,.0f}")
+    
+    if summary_only:
+        print(f"¥{total:,.0f}")
+    else:
+        print(f"結果({result_file})から取得:")
+        for row in result_rows:
+            print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+        print(f"今月の口座振替合計：¥{total:,.0f}")
 
 
 def get_search_query_date(result_created_at, first_day):
@@ -142,13 +178,30 @@ def search_gmail_messages(service, query_date):
     return messages
 
 
+def is_valid_sender(headers):
+    """送信者が有効かどうかをチェックする関数"""
+    for header in headers:
+        if header["name"].lower() == "from":
+            from_address = header["value"].lower()
+            for valid_sender in VALID_SENDERS:
+                if valid_sender in from_address:
+                    return True
+    return False
+
+
 def extract_debit_info_from_message(service, msg, year_month):
-    """メッセージから口座振替情報を抽出する"""
+    """メッセージから口座振替情報を抽出する関数（送信者フィルタ付き）"""
     try:
         msg_data = service.users().messages().get(userId="me", id=msg["id"]).execute()
 
-        # メール本文の取得
+        # 送信者チェック
         payload = msg_data.get("payload", {})
+        headers = payload.get("headers", [])
+        if not is_valid_sender(headers):
+            logger.debug(f"送信者が無効なためスキップ: {msg['id']}")
+            return None
+
+        # メール本文の取得
         body = get_message_body(payload)
         if not body:  # フォールバック
             body = msg_data.get("snippet", "")
@@ -224,22 +277,29 @@ def save_results_to_csv(extracted, result_file, result_files):
     return new_result_file
 
 
-def display_new_results(extracted):
+def display_new_results(extracted, summary_only=False):
     """新規取得した結果を表示する"""
     if extracted:
         total = sum(float(row["金額"]) for row in extracted)
-        print("新規取得した口座振替情報:")
-        for row in extracted:
-            print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
-        print(f"今月の新規口座振替合計：¥{total:,.0f}")
+        if summary_only:
+            print(f"¥{total:,.0f}")
+        else:
+            print("新規取得した口座振替情報:")
+            for row in extracted:
+                print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+            print(f"今月の新規口座振替合計：¥{total:,.0f}")
     else:
-        print("新しい口座振替情報は見つかりませんでした")
+        if not summary_only:
+            print("新しい口座振替情報は見つかりませんでした")
+        else:
+            print("¥0")
 
 
-def fetch_mail_and_extract_info(service):
+def fetch_mail_and_extract_info(service, summary_only=False):
     """メールから口座振替情報を取得し、CSVに保存する"""
     try:
-        logger.info("口座振替情報の取得を開始します")
+        if not summary_only:
+            logger.info("口座振替情報の取得を開始します")
         today = datetime.date.today()
         first_day = today.replace(day=1)
         year_month = today.strftime("%Y-%m")
@@ -250,7 +310,7 @@ def fetch_mail_and_extract_info(service):
         )
 
         if result_rows:
-            display_cached_results(result_file, result_rows)
+            display_cached_results(result_file, result_rows, summary_only)
             return
 
         # Gmail検索用の日付を取得
@@ -266,14 +326,27 @@ def fetch_mail_and_extract_info(service):
         save_results_to_csv(extracted, result_file, result_files)
 
         # 新規取得した結果を表示
-        display_new_results(extracted)
+        display_new_results(extracted, summary_only)
 
     except Exception as e:
         logger.error(f"Gmail API エラー: {e}")
-        print(f"エラーが発生しました: {e}")
+        if not summary_only:
+            print(f"エラーが発生しました: {e}")
         return
 
 
+def parse_arguments():
+    """コマンドライン引数を解析する"""
+    parser = argparse.ArgumentParser(description="Gmailから口座振替情報を取得して集計します")
+    parser.add_argument(
+        "--summary-only", "-s",
+        action="store_true",
+        help="合計金額のみを表示（詳細な情報を省略）"
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = parse_arguments()
     service = authenticate_gmail()
-    fetch_mail_and_extract_info(service)
+    fetch_mail_and_extract_info(service, summary_only=args.summary_only)

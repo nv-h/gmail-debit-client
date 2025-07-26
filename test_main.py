@@ -5,17 +5,22 @@ from unittest.mock import Mock, mock_open, patch
 import pytest
 
 from main import (
+    authenticate_gmail,
     display_cached_results,
     display_new_results,
     extract_debit_info_from_message,
     extract_debit_info_from_messages,
+    filter_zero_amount_rows,
     get_current_month_info,
     get_message_body,
+    get_missing_months_from_cache,
+    get_one_year_info,
     get_search_query_date,
     is_valid_sender,
     load_existing_cache_data,
     save_results_to_csv,
     search_gmail_messages,
+    search_gmail_messages_for_month,
     validate_amount,
 )
 
@@ -381,6 +386,230 @@ class TestGetCurrentMonthInfo:
 
             mock_today.replace.assert_called_once_with(day=1)
             mock_today.strftime.assert_called_once_with("%Y-%m")
+
+
+class TestFilterZeroAmountRows:
+    def test_filter_zero_amount_rows_valid_data(self):
+        rows = [
+            {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
+            {"年月": "2024-01", "振替先": "会社B", "金額": "0"},
+            {"年月": "2024-01", "振替先": "会社C", "金額": "2000"},
+        ]
+
+        result = filter_zero_amount_rows(rows)
+
+        assert len(result) == 2
+        assert result[0]["振替先"] == "会社A"
+        assert result[1]["振替先"] == "会社C"
+
+    def test_filter_zero_amount_rows_invalid_amount(self):
+        rows = [
+            {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
+            {"年月": "2024-01", "振替先": "会社B", "金額": "abc"},
+            {"年月": "2024-01", "振替先": "会社C", "金額": ""},
+        ]
+
+        result = filter_zero_amount_rows(rows)
+
+        assert len(result) == 1
+        assert result[0]["振替先"] == "会社A"
+
+    def test_filter_zero_amount_rows_empty_list(self):
+        result = filter_zero_amount_rows([])
+        assert result == []
+
+
+class TestGetMissingMonthsFromCache:
+    def test_get_missing_months_from_cache_no_missing(self):
+        result_rows = [
+            {"年月": "2025-01", "振替先": "会社A", "金額": "1000"},
+            {"年月": "2025-02", "振替先": "会社B", "金額": "2000"},
+        ]
+        start_date = datetime.date(2025, 1, 1)
+        end_date = datetime.date(2025, 2, 28)
+
+        missing = get_missing_months_from_cache(result_rows, start_date, end_date)
+
+        assert missing == []
+
+    def test_get_missing_months_from_cache_with_missing(self):
+        result_rows = [
+            {"年月": "2025-01", "振替先": "会社A", "金額": "1000"},
+        ]
+        start_date = datetime.date(2025, 1, 1)
+        end_date = datetime.date(2025, 3, 31)
+
+        missing = get_missing_months_from_cache(result_rows, start_date, end_date)
+
+        assert "2025-02" in missing
+        assert "2025-03" in missing
+        assert "2025-01" not in missing
+
+    def test_get_missing_months_from_cache_excludes_pre_2025(self):
+        result_rows = []
+        start_date = datetime.date(2024, 11, 1)
+        end_date = datetime.date(2025, 2, 28)
+
+        missing = get_missing_months_from_cache(result_rows, start_date, end_date)
+
+        # 2025年1月以前は除外される
+        assert "2024-11" not in missing
+        assert "2024-12" not in missing
+        assert "2025-01" in missing
+        assert "2025-02" in missing
+
+
+class TestSearchGmailMessagesForMonth:
+    def test_search_gmail_messages_for_month_success(self):
+        mock_service = Mock()
+        mock_service.users().messages().list().execute.return_value = {
+            "messages": [{"id": "msg1"}, {"id": "msg2"}]
+        }
+
+        messages = search_gmail_messages_for_month(mock_service, "2024-01")
+
+        assert len(messages) == 2
+        assert messages[0]["id"] == "msg1"
+        assert messages[1]["id"] == "msg2"
+
+        # クエリが正しく構築されているかチェック
+        expected_query = "after:2024/01/01 before:2024/01/31 subject:(口座振替)"
+        mock_service.users().messages().list.assert_called_with(
+            userId="me", q=expected_query
+        )
+
+    def test_search_gmail_messages_for_month_december(self):
+        mock_service = Mock()
+        mock_service.users().messages().list().execute.return_value = {
+            "messages": [{"id": "msg1"}]
+        }
+
+        search_gmail_messages_for_month(mock_service, "2024-12")
+
+        # 12月の場合、翌年1月1日の前日までになることを確認
+        expected_query = "after:2024/12/01 before:2024/12/31 subject:(口座振替)"
+        mock_service.users().messages().list.assert_called_with(
+            userId="me", q=expected_query
+        )
+
+    def test_search_gmail_messages_for_month_invalid_format(self):
+        mock_service = Mock()
+
+        messages = search_gmail_messages_for_month(mock_service, "invalid-date")
+
+        assert messages == []
+
+    def test_search_gmail_messages_for_month_no_results(self):
+        mock_service = Mock()
+        mock_service.users().messages().list().execute.return_value = {}
+
+        messages = search_gmail_messages_for_month(mock_service, "2024-01")
+
+        assert messages == []
+
+
+class TestGetOneYearInfo:
+    def test_get_one_year_info(self):
+        with patch("main.datetime.date") as mock_date:
+            mock_today = Mock()
+            mock_one_year_ago = Mock()
+
+            mock_date.today.return_value = mock_today
+
+            # datetime.timedelta をモック
+            with patch("main.datetime.timedelta") as mock_timedelta:
+                mock_timedelta.return_value = Mock()
+                mock_today.__sub__ = Mock(return_value=mock_one_year_ago)
+
+                today, one_year_ago, year_month = get_one_year_info()
+
+                assert today == mock_today
+                assert one_year_ago == mock_one_year_ago
+                assert year_month == "all"
+
+                # timedelta(days=365) で引き算されることを確認
+                mock_timedelta.assert_called_once_with(days=365)
+                mock_today.__sub__.assert_called_once()
+
+
+class TestAuthenticateGmail:
+    @patch("main.os.path.exists")
+    @patch("main.open", new_callable=mock_open)
+    @patch("main.pickle.load")
+    @patch("main.build")
+    def test_authenticate_gmail_with_valid_token(
+        self, mock_build, mock_pickle_load, mock_file, mock_exists
+    ):
+        # 有効なトークンが存在する場合
+        mock_exists.return_value = True
+        mock_creds = Mock()
+        mock_creds.valid = True
+        mock_pickle_load.return_value = mock_creds
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        result = authenticate_gmail()
+
+        assert result == mock_service
+        mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds)
+
+    @patch("main.os.path.exists")
+    @patch("main.open", new_callable=mock_open)
+    @patch("main.pickle")
+    @patch("main.build")
+    @patch("main.InstalledAppFlow.from_client_secrets_file")
+    def test_authenticate_gmail_no_token(
+        self, mock_flow_class, mock_build, mock_pickle, mock_file, mock_exists
+    ):
+        # トークンが存在しない場合
+        mock_exists.return_value = False
+        mock_flow = Mock()
+        mock_flow_class.return_value = mock_flow
+        mock_creds = Mock()
+        mock_flow.run_local_server.return_value = mock_creds
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        result = authenticate_gmail()
+
+        assert result == mock_service
+        mock_flow.run_local_server.assert_called_once_with(port=0)
+        mock_pickle.dump.assert_called_once()
+
+    @patch("main.os.path.exists")
+    @patch("main.open", new_callable=mock_open)
+    @patch("main.pickle.load")
+    @patch("main.pickle.dump")
+    @patch("main.Request")
+    @patch("main.build")
+    def test_authenticate_gmail_expired_token_refresh(
+        self,
+        mock_build,
+        mock_request_class,
+        mock_pickle_dump,
+        mock_pickle_load,
+        mock_file,
+        mock_exists,
+    ):
+        # 期限切れトークンのリフレッシュ
+        mock_exists.return_value = True
+        mock_creds = Mock()
+        mock_creds.valid = False
+        mock_creds.expired = True
+        mock_creds.refresh_token = "refresh_token"
+        mock_pickle_load.return_value = mock_creds
+        mock_request = Mock()
+        mock_request_class.return_value = mock_request
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        result = authenticate_gmail()
+
+        assert result == mock_service
+        mock_creds.refresh.assert_called_once_with(mock_request)
+        mock_pickle_dump.assert_called_once_with(
+            mock_creds, mock_file.return_value.__enter__.return_value
+        )
 
 
 if __name__ == "__main__":

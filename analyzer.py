@@ -40,16 +40,13 @@ class DebitAnalyzer:
 
     def _load_data(self) -> list[dict[str, str]]:
         """CSVファイルからデータを読み込み"""
-        data = []
         with Path(self.csv_file_path).open(encoding="utf-8") as f:
             lines = f.readlines()
             # コメント行をスキップ
             csv_lines = [line for line in lines if not line.startswith("#")]
             reader = csv.DictReader(csv_lines)
-            for row in reader:
-                if float(row["金額"]) > 0:  # 金額0の行を除外
-                    data.append(row)
-        return data
+            # 金額0の行を除外してリスト作成
+            return [row for row in reader if float(row["金額"]) > 0]
 
     def get_summary(self) -> dict:
         """データのサマリを取得"""

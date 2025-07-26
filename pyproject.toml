@@ -60,6 +60,9 @@ select = [
     "TRY",  # tryceratops - 例外処理の適切な書き方（エラーハンドリング品質）
     "YTT",  # flake8-2020 - sys.version_info等の適切な書き方（互換性）
     "PTH",  # flake8-use-pathlib - os.pathの代わりにpathlibの使用を推奨（モダンなパス操作）
+    "FURB", # refurb - Python特有のイディオムを推奨（モダンな書き方）
+    "PERF", # perflint - パフォーマンス改善提案（実行効率）
+    "RUF100", # ruff unused-noqa - 不要なnoqaコメントを検出（保守性）
 ]
 
 ignore = [

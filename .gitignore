@@ -3,4 +3,5 @@ token.pickle
 
 CLAUDE.md
 
+__pycache__/
 *.lock

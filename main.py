@@ -295,14 +295,21 @@ def display_new_results(extracted, summary_only=False):
             print("¥0")
 
 
+def get_current_month_info():
+    """現在の月情報を取得する"""
+    today = datetime.date.today()
+    first_day = today.replace(day=1)
+    year_month = today.strftime("%Y-%m")
+    return today, first_day, year_month
+
+
 def fetch_mail_and_extract_info(service, summary_only=False):
     """メールから口座振替情報を取得し、CSVに保存する"""
     try:
         if not summary_only:
             logger.info("口座振替情報の取得を開始します")
-        today = datetime.date.today()
-        first_day = today.replace(day=1)
-        year_month = today.strftime("%Y-%m")
+        
+        _, first_day, year_month = get_current_month_info()
 
         # 既存のキャッシュデータを確認
         result_file, result_created_at, result_rows, result_files = (

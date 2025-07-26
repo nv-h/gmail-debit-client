@@ -1,11 +1,15 @@
 import csv
 import glob
+import os
 from collections import defaultdict
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# 設定
+OUTPUT_DIR = "outputs"
 
 
 class DebitAnalyzer:
@@ -26,9 +30,14 @@ class DebitAnalyzer:
 
     def _find_latest_csv(self) -> str:
         """最新のresult_debit_*.csvファイルを検索"""
-        result_files = sorted(glob.glob("result_debit_*.csv"), reverse=True)
+        # 出力ディレクトリを作成
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        result_files = sorted(
+            glob.glob(f"{OUTPUT_DIR}/result_debit_*.csv"), reverse=True
+        )
         if not result_files:
-            msg = "result_debit_*.csvファイルが見つかりません"
+            msg = f"{OUTPUT_DIR}/result_debit_*.csvファイルが見つかりません"
             raise FileNotFoundError(msg)
         return result_files[0]
 
@@ -226,13 +235,20 @@ class DebitAnalyzer:
 
         # 保存
         if save_path:
-            html_path = (
-                save_path.replace(".png", ".html")
-                if save_path.endswith(".png")
-                else save_path
-            )
-            fig.write_html(html_path)
-            print(f"グラフを保存しました: {html_path}")
+            # 出力ディレクトリを作成
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+            # フルパスでない場合はOUTPUT_DIRを付ける
+            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+                save_path = f"{OUTPUT_DIR}/{save_path}"
+
+            if save_path.endswith(".png"):
+                fig.write_image(save_path, width=1200, height=600)
+                print(f"グラフを保存しました: {save_path}")
+            else:
+                html_path = save_path
+                fig.write_html(html_path)
+                print(f"グラフを保存しました: {html_path}")
 
         # 表示
         if show_chart:
@@ -284,13 +300,20 @@ class DebitAnalyzer:
 
         # 保存
         if save_path:
-            html_path = (
-                save_path.replace(".png", ".html")
-                if save_path.endswith(".png")
-                else save_path
-            )
-            fig.write_html(html_path)
-            print(f"グラフを保存しました: {html_path}")
+            # 出力ディレクトリを作成
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+            # フルパスでない場合はOUTPUT_DIRを付ける
+            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+                save_path = f"{OUTPUT_DIR}/{save_path}"
+
+            if save_path.endswith(".png"):
+                fig.write_image(save_path, width=1200, height=600)
+                print(f"グラフを保存しました: {save_path}")
+            else:
+                html_path = save_path
+                fig.write_html(html_path)
+                print(f"グラフを保存しました: {html_path}")
 
         # 表示
         if show_chart:
@@ -413,13 +436,20 @@ class DebitAnalyzer:
 
         # 保存
         if save_path:
-            html_path = (
-                save_path.replace(".png", ".html")
-                if save_path.endswith(".png")
-                else save_path
-            )
-            fig.write_html(html_path)
-            print(f"ダッシュボードを保存しました: {html_path}")
+            # 出力ディレクトリを作成
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+            # フルパスでない場合はOUTPUT_DIRを付ける
+            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+                save_path = f"{OUTPUT_DIR}/{save_path}"
+
+            if save_path.endswith(".png"):
+                fig.write_image(save_path, width=1200, height=900)
+                print(f"ダッシュボードを保存しました: {save_path}")
+            else:
+                html_path = save_path
+                fig.write_html(html_path)
+                print(f"ダッシュボードを保存しました: {html_path}")
 
         # 表示
         if show_chart:

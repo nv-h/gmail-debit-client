@@ -36,6 +36,7 @@ ACCOUNT_NAME_PATTERN = r"口座振替先[:：]\s*([\w\W]+?)(?:\n|お申込先)"
 AMOUNT_PATTERN = r"引落金額\s*[:：]\s*([¥\d,]+)円"
 
 # ファイル設定
+OUTPUT_DIR = "outputs"
 RESULT_FILE_PREFIX = "result_debit_"
 CSV_ENCODING = "utf-8"
 
@@ -137,7 +138,12 @@ def authenticate_gmail():
 
 def load_existing_cache_data(year_month, year_mode=False):
     """既存のキャッシュデータを読み込む"""
-    result_files = sorted(glob.glob(f"{RESULT_FILE_PREFIX}*.csv"), reverse=True)
+    # 出力ディレクトリを作成
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    result_files = sorted(
+        glob.glob(f"{OUTPUT_DIR}/{RESULT_FILE_PREFIX}*.csv"), reverse=True
+    )
     result_file = result_files[0] if result_files else None
     result_created_at = None
     result_rows = []
@@ -366,7 +372,7 @@ def save_results_to_csv(extracted, result_file, result_files):
 
     # 新しい結果ファイル名
     result_time = datetime.date.today().strftime("%Y-%m-%d")
-    new_result_file = f"{RESULT_FILE_PREFIX}{result_time}.csv"
+    new_result_file = f"{OUTPUT_DIR}/{RESULT_FILE_PREFIX}{result_time}.csv"
 
     # 既存データを残して追記
     old_rows = []

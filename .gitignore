@@ -5,3 +5,6 @@ CLAUDE.md
 
 __pycache__/
 *.lock
+
+# 結果ファイル
+result_*.csv

@@ -11,3 +11,76 @@ dependencies = [
     "chardet>=5.0.0",
     "pytest>=7.0.0",
 ]
+
+[tool.ruff]
+line-length = 88                # 1行の文字数制限（Black互換）
+target-version = "py313"         # Python 3.13の新機能を活用
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors - PEP8準拠のエラーを検出（基本的なコーディング規約）
+    "W",    # pycodestyle warnings - PEP8準拠の警告を検出（コードスタイルの改善）
+    "F",    # pyflakes - 未使用変数・インポート等の論理エラーを検出（バグ予防）
+    "I",    # isort - インポート文の並び順を統一（可読性向上）
+    "B",    # flake8-bugbear - よくあるバグパターンを検出（バグ予防）
+    "C4",   # flake8-comprehensions - リスト内包表記等の最適化提案（パフォーマンス）
+    "N",    # pep8-naming - 変数・関数・クラス名がPEP8に準拠しているかチェック（一貫性）
+    "UP",   # pyupgrade - 古いPython構文を新しい書き方に統一（モダンなコード）
+    "S",    # flake8-bandit (security) - セキュリティ脆弱性を検出（Gmail API扱うため重要）
+    "T20",  # flake8-print - print文の残存をチェック（本番環境でのデバッグコード混入防止）
+    "SIM",  # flake8-simplify - 複雑なコードをシンプルに書き換え提案（可読性・保守性）
+    "TCH",  # flake8-type-checking - 型チェック専用インポートの最適化（実行時パフォーマンス）
+    "RUF",  # ruff-specific rules - ruff独自の有用なルール（総合的なコード品質）
+    "PL",   # pylint - 総合的なコード品質チェック（設計・保守性）
+    "C90",  # mccabe complexity - 関数の複雑度をチェック（保守性・テスタビリティ）
+    "A",    # flake8-builtins - 組み込み関数名の誤用を防止（予期しない動作防止）
+    "COM",  # flake8-commas - カンマの統一（一貫性）
+    "DTZ",  # flake8-datetimez - 日時処理でのタイムゾーン考慮を促進（国際化対応）
+    "EM",   # flake8-errmsg - エラーメッセージの適切な書き方（デバッグ効率）
+    "ERA",  # eradicate - コメントアウトされたコードの削除提案（コード整理）
+    "FBT",  # flake8-boolean-trap - bool引数の誤用を防止（API設計改善）
+    "ICN",  # flake8-import-conventions - 一般的なインポート名の統一（可読性）
+    "INP",  # flake8-no-pep420 - __init__.pyファイルの存在チェック（パッケージ構造）
+    "ISC",  # flake8-implicit-str-concat - 文字列結合の明示化（意図明確化）
+    "LOG",  # flake8-logging - ログ出力の適切な書き方（運用・デバッグ効率）
+    "G",    # flake8-logging-format - ログフォーマットの統一（運用効率）
+    "PIE",  # flake8-pie - 冗長なコードの簡潔化提案（可読性）
+    "PT",   # flake8-pytest-style - pytestの適切な書き方（テスト品質）
+    "Q",    # flake8-quotes - クォートスタイルの統一（一貫性）
+    "RSE",  # flake8-raise - 例外発生の適切な書き方（エラーハンドリング）
+    "RET",  # flake8-return - return文の最適化（可読性・パフォーマンス）
+    "SLF",  # flake8-self - selfの適切な使用（オブジェクト指向設計）
+    "SLOT", # flake8-slots - __slots__の活用提案（メモリ効率）
+    "TID",  # flake8-tidy-imports - インポート文の整理（依存関係明確化）
+    "TRY",  # tryceratops - 例外処理の適切な書き方（エラーハンドリング品質）
+    "YTT",  # flake8-2020 - sys.version_info等の適切な書き方（互換性）
+]
+
+ignore = [
+    "E501",   # 行長制限はformatterで処理するため無視
+    "COM812", # trailing commaはformatterと競合するため無視
+    "ISC001", # 文字列結合はformatterと競合するため無視
+]
+
+[tool.ruff.lint.per-file-ignores]
+# テストファイルでは以下を許可（テストの性質上必要）
+"tests/*" = [
+    "S101",    # assert文の使用を許可（テストでは必須）
+    "PLR2004", # マジックナンバーを許可（テストデータとして自然）
+    "S311"     # 疑似乱数生成器を許可（テストデータ生成で使用）
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10  # 関数の複雑度上限（保守性確保）
+
+[tool.ruff.lint.pylint]
+max-args = 7         # 関数の引数数上限（設計品質確保）
+max-branches = 15    # 分岐数上限（テスタビリティ確保）
+max-returns = 6      # return文数上限（可読性確保）
+max-statements = 50  # 文数上限（関数サイズ制限）
+
+[tool.ruff.format]
+quote-style = "double"           # ダブルクォート統一（Python標準に準拠）
+indent-style = "space"           # スペースインデント（PEP8準拠）
+skip-magic-trailing-comma = false # trailing commaを自動付与（diff改善）
+line-ending = "auto"             # 環境に応じた改行コード

@@ -1,16 +1,17 @@
-import re
-import datetime
-import csv
-import glob
-import base64
-import logging
 import argparse
-import chardet
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+import base64
+import csv
+import datetime
+import glob
+import logging
 import os.path
 import pickle
+import re
+
+import chardet
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 # ログ設定
 logging.basicConfig(
@@ -43,7 +44,7 @@ def get_message_body(payload):
     """メールの本文を取得する関数（文字コード自動判定付き）"""
     body = ""
     raw_data = None
-    
+
     if payload.get("body") and payload["body"].get("data"):
         raw_data = base64.urlsafe_b64decode(payload["body"]["data"])
     elif payload.get("parts"):
@@ -52,19 +53,19 @@ def get_message_body(payload):
                 if part["body"].get("data"):
                     raw_data = base64.urlsafe_b64decode(part["body"]["data"])
                     break
-    
+
     if raw_data:
         # 文字コード自動判定
         try:
             detected = chardet.detect(raw_data)
-            encoding = detected.get('encoding', 'utf-8')
-            confidence = detected.get('confidence', 0)
-            
+            encoding = detected.get("encoding", "utf-8")
+            confidence = detected.get("confidence", 0)
+
             if confidence > 0.7:  # 信頼度が70%以上の場合
                 body = raw_data.decode(encoding)
             else:
                 # フォールバック: 一般的な日本語エンコーディングを試す
-                for enc in ['utf-8', 'iso-2022-jp', 'shift_jis', 'euc-jp']:
+                for enc in ["utf-8", "iso-2022-jp", "shift_jis", "euc-jp"]:
                     try:
                         body = raw_data.decode(enc)
                         break
@@ -74,10 +75,10 @@ def get_message_body(payload):
             logger.warning(f"文字コード判定エラー: {e}")
             # 最終フォールバック
             try:
-                body = raw_data.decode('utf-8', errors='ignore')
+                body = raw_data.decode("utf-8", errors="ignore")
             except:
                 body = ""
-    
+
     return body
 
 
@@ -144,7 +145,7 @@ def load_existing_cache_data(year_month, year_mode=False):
 
     if result_file and os.path.exists(result_file):
         logger.info(f"既存の結果ファイルを確認: {result_file}")
-        with open(result_file, "r", encoding=CSV_ENCODING) as f:
+        with open(result_file, encoding=CSV_ENCODING) as f:
             first_line = f.readline()
             if first_line.startswith("# cached_at:"):
                 result_created_at = first_line.strip().split(":", 1)[1].strip()
@@ -163,32 +164,31 @@ def display_cached_results(result_file, result_rows, summary_only=False, year_mo
     """キャッシュされた結果を表示する（金額0の行を除外）"""
     # 金額0の行を除外
     result_rows_filtered = filter_zero_amount_rows(result_rows)
-    
+
     logger.info(f"{len(result_rows)}件の既存データが見つかりました（金額0を除外後: {len(result_rows_filtered)}件）")
     total = sum(float(row["金額"]) for row in result_rows_filtered)
-    
+
     if summary_only:
         print(f"¥{total:,.0f}")
+    elif year_mode:
+        print(f"結果({result_file})から取得:")
+        # 年月別にグループ化して表示
+        from collections import defaultdict
+        by_month = defaultdict(list)
+        for row in result_rows_filtered:
+            by_month[row["年月"]].append(row)
+
+        for month in sorted(by_month.keys()):
+            month_total = sum(float(row["金額"]) for row in by_month[month])
+            print(f"\n{month} (¥{month_total:,.0f})")
+            for row in by_month[month]:
+                print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
+        print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
     else:
-        if year_mode:
-            print(f"結果({result_file})から取得:")
-            # 年月別にグループ化して表示
-            from collections import defaultdict
-            by_month = defaultdict(list)
-            for row in result_rows_filtered:
-                by_month[row['年月']].append(row)
-            
-            for month in sorted(by_month.keys()):
-                month_total = sum(float(row["金額"]) for row in by_month[month])
-                print(f"\n{month} (¥{month_total:,.0f})")
-                for row in by_month[month]:
-                    print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-            print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
-        else:
-            print(f"結果({result_file})から取得:")
-            for row in result_rows_filtered:
-                print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
-            print(f"今月の口座振替合計：¥{total:,.0f}")
+        print(f"結果({result_file})から取得:")
+        for row in result_rows_filtered:
+            print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+        print(f"今月の口座振替合計：¥{total:,.0f}")
 
 
 def get_search_query_date(result_created_at, first_day):
@@ -206,41 +206,41 @@ def get_missing_months_from_cache(result_rows, start_date, end_date):
     """キャッシュデータから欠けている月のリストを取得する（2025年1月以降のみ）"""
     # キャッシュされている年月のセット
     cached_months = set(row["年月"] for row in result_rows)
-    
+
     # 過去1年分の全ての月を生成
     all_months = []
     current = start_date.replace(day=1)  # 月初にする
     end = end_date.replace(day=1)
-    
+
     # 2025年1月以前の月をカウント
     excluded_months = []
-    
+
     while current <= end:
         month_str = current.strftime("%Y-%m")
-        
+
         # 2025年1月以前は除外（金額データなし）
         if current < datetime.date(2025, 1, 1):
             excluded_months.append(month_str)
         else:
             all_months.append(month_str)
-        
+
         # 次の月へ
         if current.month == 12:
             current = current.replace(year=current.year + 1, month=1)
         else:
             current = current.replace(month=current.month + 1)
-    
+
     # 除外された月について警告
     if excluded_months:
         logger.warning(f"2025年1月以前の{len(excluded_months)}ヶ月は金額データがないため検索対象外: {', '.join(excluded_months)}")
-    
+
     # キャッシュにない月を特定（2025年1月以降のみ）
     missing_months = [month for month in all_months if month not in cached_months]
-    
+
     logger.info(f"検索対象{len(all_months)}ヶ月中、キャッシュ済み: {len([m for m in cached_months if m >= '2025-01'])}ヶ月、未取得: {len(missing_months)}ヶ月")
     if missing_months:
         logger.info(f"未取得の月: {', '.join(missing_months)}")
-    
+
     return missing_months
 
 
@@ -260,27 +260,27 @@ def search_gmail_messages_for_month(service, year_month):
     """指定した年月のメッセージを検索する"""
     try:
         year, month = map(int, year_month.split("-"))
-        
+
         # 月の開始日と終了日を計算
         start_date = datetime.date(year, month, 1)
         if month == 12:
             end_date = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
         else:
             end_date = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
-        
+
         # Gmail検索クエリ（指定月の範囲）
         start_str = start_date.strftime("%Y/%m/%d")
         end_str = end_date.strftime("%Y/%m/%d")
         query = f"after:{start_str} before:{end_str} subject:({SEARCH_SUBJECT})"
-        
+
         logger.info(f"Gmail検索クエリ ({year_month}): {query}")
-        
+
         results = service.users().messages().list(userId="me", q=query).execute()
         messages = results.get("messages", [])
         logger.info(f"{year_month}: {len(messages)}件のメールが見つかりました")
-        
+
         return messages
-        
+
     except (ValueError, TypeError):
         logger.error(f"年月フォーマットエラー: {year_month}")
         return []
@@ -363,7 +363,7 @@ def save_results_to_csv(extracted, result_file, result_files):
     # 既存データを残して追記
     old_rows = []
     if result_file and os.path.exists(result_file):
-        with open(result_file, "r", encoding=CSV_ENCODING) as f:
+        with open(result_file, encoding=CSV_ENCODING) as f:
             lines = f.readlines()
             if lines and lines[0].startswith("# cached_at:"):
                 old_rows = list(csv.DictReader(lines[1:]))
@@ -373,15 +373,15 @@ def save_results_to_csv(extracted, result_file, result_files):
     # マージ前に金額0の行を除外
     old_rows_filtered = filter_zero_amount_rows(old_rows)
     extracted_filtered = filter_zero_amount_rows(extracted)
-    
+
     all_rows = old_rows_filtered + extracted_filtered
-    
+
     # 除外された行数をログに出力
     old_excluded = len(old_rows) - len(old_rows_filtered)
     new_excluded = len(extracted) - len(extracted_filtered)
     if old_excluded > 0 or new_excluded > 0:
         logger.info(f"金額0の行を除外: 既存データ {old_excluded}行, 新規データ {new_excluded}行")
-    
+
     with open(new_result_file, "w", encoding=CSV_ENCODING, newline="") as f:
         f.write(f"# cached_at: {result_time}\n")
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -407,10 +407,10 @@ def display_merged_results(cached_rows, new_rows, summary_only=False):
     # 金額0の行を除外
     cached_rows_filtered = filter_zero_amount_rows(cached_rows)
     new_rows_filtered = filter_zero_amount_rows(new_rows)
-    
+
     all_rows = cached_rows_filtered + new_rows_filtered
     total = sum(float(row["金額"]) for row in all_rows)
-    
+
     if summary_only:
         print(f"¥{total:,.0f}")
     else:
@@ -418,10 +418,10 @@ def display_merged_results(cached_rows, new_rows, summary_only=False):
         from collections import defaultdict
         by_month = defaultdict(list)
         for row in all_rows:
-            by_month[row['年月']].append(row)
-        
-        cached_months = set(row['年月'] for row in cached_rows_filtered)
-        
+            by_month[row["年月"]].append(row)
+
+        cached_months = set(row["年月"] for row in cached_rows_filtered)
+
         print("過去1年分の口座振替情報:")
         for month in sorted(by_month.keys()):
             month_total = sum(float(row["金額"]) for row in by_month[month])
@@ -429,7 +429,7 @@ def display_merged_results(cached_rows, new_rows, summary_only=False):
             print(f"\n{month} (¥{month_total:,.0f}){status}")
             for row in by_month[month]:
                 print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-        
+
         print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
         if new_rows_filtered:
             new_total = sum(float(row["金額"]) for row in new_rows_filtered)
@@ -440,39 +440,37 @@ def display_new_results(extracted, summary_only=False, year_mode=False):
     """新規取得した結果を表示する（金額0の行を除外）"""
     # 金額0の行を除外
     extracted_filtered = filter_zero_amount_rows(extracted)
-    
+
     if extracted_filtered:
         total = sum(float(row["金額"]) for row in extracted_filtered)
         if summary_only:
             print(f"¥{total:,.0f}")
+        elif year_mode:
+            print("過去1年分の口座振替情報:")
+            # 年月別にグループ化して表示
+            from collections import defaultdict
+            by_month = defaultdict(list)
+            for row in extracted_filtered:
+                by_month[row["年月"]].append(row)
+
+            for month in sorted(by_month.keys()):
+                month_total = sum(float(row["金額"]) for row in by_month[month])
+                print(f"\n{month} (¥{month_total:,.0f})")
+                for row in by_month[month]:
+                    print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
+            print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
         else:
-            if year_mode:
-                print("過去1年分の口座振替情報:")
-                # 年月別にグループ化して表示
-                from collections import defaultdict
-                by_month = defaultdict(list)
-                for row in extracted_filtered:
-                    by_month[row['年月']].append(row)
-                
-                for month in sorted(by_month.keys()):
-                    month_total = sum(float(row["金額"]) for row in by_month[month])
-                    print(f"\n{month} (¥{month_total:,.0f})")
-                    for row in by_month[month]:
-                        print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-                print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
-            else:
-                print("新規取得した口座振替情報:")
-                for row in extracted_filtered:
-                    print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
-                print(f"今月の新規口座振替合計：¥{total:,.0f}")
+            print("新規取得した口座振替情報:")
+            for row in extracted_filtered:
+                print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+            print(f"今月の新規口座振替合計：¥{total:,.0f}")
+    elif not summary_only:
+        if year_mode:
+            print("過去1年分の口座振替情報は見つかりませんでした")
+        else:
+            print("新しい口座振替情報は見つかりませんでした")
     else:
-        if not summary_only:
-            if year_mode:
-                print("過去1年分の口座振替情報は見つかりませんでした")
-            else:
-                print("新しい口座振替情報は見つかりませんでした")
-        else:
-            print("¥0")
+        print("¥0")
 
 
 def get_current_month_info():
@@ -498,7 +496,7 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
                 logger.info("過去1年分の口座振替情報の取得を開始します")
             else:
                 logger.info("口座振替情報の取得を開始します")
-        
+
         if year_mode:
             _, start_date, year_month = get_one_year_info()
         else:
@@ -513,13 +511,13 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
             # 年間モードの場合、欠けている月を特定
             today = datetime.date.today()
             missing_months = get_missing_months_from_cache(result_rows, start_date, today)
-            
+
             # 全ての月がキャッシュにある場合はそのまま表示
             if not missing_months:
                 if result_rows:
                     display_cached_results(result_file, result_rows, summary_only, year_mode=True)
                 return
-            
+
             # 欠けている月のメッセージを取得
             extracted = []
             for missing_month in missing_months:
@@ -527,7 +525,7 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
                 monthly_messages = search_gmail_messages_for_month(service, missing_month)
                 monthly_extracted = extract_debit_info_from_messages(service, monthly_messages, missing_month, year_mode=True)
                 extracted.extend(monthly_extracted)
-                
+
         else:
             # 月間モードの従来処理
             if result_rows:

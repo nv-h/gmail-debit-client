@@ -1,0 +1,11 @@
+[project]
+name = "gmail-debit-client"
+version = "0.1.0"
+description = "Gmail APIから口座振替の情報を取得して今月の引き落とし金額の合計値を取得するやつ"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-api-python-client>=2.177.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.2",
+]

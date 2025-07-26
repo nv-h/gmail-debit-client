@@ -49,10 +49,9 @@ def get_message_body(payload):
         raw_data = base64.urlsafe_b64decode(payload["body"]["data"])
     elif payload.get("parts"):
         for part in payload["parts"]:
-            if part["mimeType"] == "text/plain":
-                if part["body"].get("data"):
-                    raw_data = base64.urlsafe_b64decode(part["body"]["data"])
-                    break
+            if part["mimeType"] == "text/plain" and part["body"].get("data"):
+                raw_data = base64.urlsafe_b64decode(part["body"]["data"])
+                break
 
     if raw_data:
         # 文字コード自動判定
@@ -64,7 +63,7 @@ def get_message_body(payload):
             if confidence > 0.7:  # 信頼度が70%以上の場合
                 body = raw_data.decode(encoding)
             else:
-                # フォールバック: 一般的な日本語エンコーディングを試す
+                # 一般的な日本語エンコーディングを試す
                 for enc in ["utf-8", "iso-2022-jp", "shift_jis", "euc-jp"]:
                     try:
                         body = raw_data.decode(enc)
@@ -76,7 +75,7 @@ def get_message_body(payload):
             # 最終フォールバック
             try:
                 body = raw_data.decode("utf-8", errors="ignore")
-            except:
+            except UnicodeDecodeError:
                 body = ""
 
     return body
@@ -131,8 +130,8 @@ def authenticate_gmail():
 
         return build("gmail", "v1", credentials=creds)
 
-    except Exception as e:
-        logger.error(f"Gmail認証エラー: {e}")
+    except Exception:
+        logger.exception("Gmail認証エラー:")
         raise
 
 
@@ -282,7 +281,7 @@ def search_gmail_messages_for_month(service, year_month):
         return messages
 
     except (ValueError, TypeError):
-        logger.error(f"年月フォーマットエラー: {year_month}")
+        logger.exception(f"年月フォーマットエラー: {year_month}")
         return []
 
 
@@ -331,8 +330,8 @@ def extract_debit_info_from_message(service, msg, year_month, year_mode=False):
 
         return {"年月": year_month, "振替先": name, "金額": amt}
 
-    except Exception as e:
-        logger.error(f"メッセージ取得エラー (ID: {msg['id']}): {e}")
+    except Exception:
+        logger.exception(f"メッセージ取得エラー (ID: {msg['id']}):")
         return None
 
 
@@ -551,7 +550,7 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
             display_new_results(extracted, summary_only, year_mode)
 
     except Exception as e:
-        logger.error(f"Gmail API エラー: {e}")
+        logger.exception("Gmail API エラー")
         if not summary_only:
             print(f"エラーが発生しました: {e}")
         return

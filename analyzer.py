@@ -1,7 +1,6 @@
 import csv
-import glob
-import os
 from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -31,20 +30,18 @@ class DebitAnalyzer:
     def _find_latest_csv(self) -> str:
         """最新のresult_debit_*.csvファイルを検索"""
         # 出力ディレクトリを作成
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
-        result_files = sorted(
-            glob.glob(f"{OUTPUT_DIR}/result_debit_*.csv"), reverse=True
-        )
+        result_files = sorted(Path(OUTPUT_DIR).glob("result_debit_*.csv"), reverse=True)
         if not result_files:
             msg = f"{OUTPUT_DIR}/result_debit_*.csvファイルが見つかりません"
             raise FileNotFoundError(msg)
-        return result_files[0]
+        return str(result_files[0])
 
     def _load_data(self) -> list[dict[str, str]]:
         """CSVファイルからデータを読み込み"""
         data = []
-        with open(self.csv_file_path, encoding="utf-8") as f:
+        with Path(self.csv_file_path).open(encoding="utf-8") as f:
             lines = f.readlines()
             # コメント行をスキップ
             csv_lines = [line for line in lines if not line.startswith("#")]
@@ -236,10 +233,12 @@ class DebitAnalyzer:
         # 保存
         if save_path:
             # 出力ディレクトリを作成
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
             # フルパスでない場合はOUTPUT_DIRを付ける
-            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+            if not Path(save_path).is_absolute() and not save_path.startswith(
+                OUTPUT_DIR
+            ):
                 save_path = f"{OUTPUT_DIR}/{save_path}"
 
             if save_path.endswith(".png"):
@@ -301,10 +300,12 @@ class DebitAnalyzer:
         # 保存
         if save_path:
             # 出力ディレクトリを作成
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
             # フルパスでない場合はOUTPUT_DIRを付ける
-            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+            if not Path(save_path).is_absolute() and not save_path.startswith(
+                OUTPUT_DIR
+            ):
                 save_path = f"{OUTPUT_DIR}/{save_path}"
 
             if save_path.endswith(".png"):
@@ -437,10 +438,12 @@ class DebitAnalyzer:
         # 保存
         if save_path:
             # 出力ディレクトリを作成
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
             # フルパスでない場合はOUTPUT_DIRを付ける
-            if not os.path.isabs(save_path) and not save_path.startswith(OUTPUT_DIR):
+            if not Path(save_path).is_absolute() and not save_path.startswith(
+                OUTPUT_DIR
+            ):
                 save_path = f"{OUTPUT_DIR}/{save_path}"
 
             if save_path.endswith(".png"):

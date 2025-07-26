@@ -2,11 +2,10 @@ import argparse
 import base64
 import csv
 import datetime
-import glob
 import logging
-import os.path
 import pickle
 import re
+from pathlib import Path
 
 import chardet
 from google.auth.transport.requests import Request
@@ -110,8 +109,8 @@ def authenticate_gmail():
     """Gmail APIの認証を行う"""
     creds = None
     try:
-        if os.path.exists(TOKEN_FILE):
-            with open(TOKEN_FILE, "rb") as token:
+        if Path(TOKEN_FILE).exists():
+            with Path(TOKEN_FILE).open("rb") as token:
                 creds = pickle.load(token)
 
         if not creds or not creds.valid:
@@ -125,7 +124,7 @@ def authenticate_gmail():
                 )
                 creds = flow.run_local_server(port=0)
 
-            with open(TOKEN_FILE, "wb") as token:
+            with Path(TOKEN_FILE).open("wb") as token:
                 pickle.dump(creds, token)
                 logger.info("認証トークンを保存しました")
 
@@ -139,18 +138,18 @@ def authenticate_gmail():
 def load_existing_cache_data(year_month, year_mode=False):
     """既存のキャッシュデータを読み込む"""
     # 出力ディレクトリを作成
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    Path(OUTPUT_DIR).mkdir(exist_ok=True)
 
     result_files = sorted(
-        glob.glob(f"{OUTPUT_DIR}/{RESULT_FILE_PREFIX}*.csv"), reverse=True
+        Path(OUTPUT_DIR).glob(f"{RESULT_FILE_PREFIX}*.csv"), reverse=True
     )
-    result_file = result_files[0] if result_files else None
+    result_file = str(result_files[0]) if result_files else None
     result_created_at = None
     result_rows = []
 
-    if result_file and os.path.exists(result_file):
+    if result_file and Path(result_file).exists():
         logger.info(f"既存の結果ファイルを確認: {result_file}")
-        with open(result_file, encoding=CSV_ENCODING) as f:
+        with Path(result_file).open(encoding=CSV_ENCODING) as f:
             first_line = f.readline()
             if first_line.startswith("# cached_at:"):
                 result_created_at = first_line.strip().split(":", 1)[1].strip()
@@ -376,8 +375,8 @@ def save_results_to_csv(extracted, result_file, result_files):
 
     # 既存データを残して追記
     old_rows = []
-    if result_file and os.path.exists(result_file):
-        with open(result_file, encoding=CSV_ENCODING) as f:
+    if result_file and Path(result_file).exists():
+        with Path(result_file).open(encoding=CSV_ENCODING) as f:
             lines = f.readlines()
             if lines and lines[0].startswith("# cached_at:"):
                 old_rows = list(csv.DictReader(lines[1:]))
@@ -398,7 +397,7 @@ def save_results_to_csv(extracted, result_file, result_files):
             f"金額0の行を除外: 既存データ {old_excluded}行, 新規データ {new_excluded}行"
         )
 
-    with open(new_result_file, "w", encoding=CSV_ENCODING, newline="") as f:
+    with Path(new_result_file).open("w", encoding=CSV_ENCODING, newline="") as f:
         f.write(f"# cached_at: {result_time}\n")
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -410,7 +409,7 @@ def save_results_to_csv(extracted, result_file, result_files):
     for old_file in result_files:
         if old_file != new_result_file:
             try:
-                os.remove(old_file)
+                Path(old_file).unlink()
                 logger.debug(f"古いファイルを削除: {old_file}")
             except Exception as e:
                 logger.warning(f"ファイル削除エラー {old_file}: {e}")

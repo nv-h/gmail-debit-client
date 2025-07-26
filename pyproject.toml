@@ -59,6 +59,7 @@ select = [
     "TID",  # flake8-tidy-imports - インポート文の整理（依存関係明確化）
     "TRY",  # tryceratops - 例外処理の適切な書き方（エラーハンドリング品質）
     "YTT",  # flake8-2020 - sys.version_info等の適切な書き方（互換性）
+    "PTH",  # flake8-use-pathlib - os.pathの代わりにpathlibの使用を推奨（モダンなパス操作）
 ]
 
 ignore = [

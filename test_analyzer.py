@@ -1,6 +1,6 @@
 import csv
-import os
 import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -38,7 +38,7 @@ class TestDebitAnalyzer:
             assert len(analyzer.data) == 2
             assert analyzer.data[0]["振替先"] == "テスト会社A"
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("glob.glob")
     def test_find_latest_csv_success(self, mock_glob):
@@ -86,7 +86,7 @@ class TestDebitAnalyzer:
             assert data[0]["振替先"] == "テスト会社A"
             assert data[1]["振替先"] == "テスト会社B"
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     def test_load_data_with_comments(self):
         """コメント行があるデータの読み込み"""
@@ -104,7 +104,7 @@ class TestDebitAnalyzer:
             assert len(data) == 1
             assert data[0]["振替先"] == "テスト会社A"
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     def test_get_summary_with_data(self):
         """データありの場合のサマリ取得"""
@@ -126,7 +126,7 @@ class TestDebitAnalyzer:
             assert summary["company_count"] == 2
             assert summary["date_range"] == "2024-01 ~ 2024-02"
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     def test_get_summary_empty_data(self):
         """データなしの場合のサマリ取得"""
@@ -158,7 +158,7 @@ class TestDebitAnalyzer:
             # print が複数回呼ばれることを確認
             assert mock_print.call_count > 5
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("builtins.print")
     def test_print_summary_summary_only(self, mock_print):
@@ -176,7 +176,7 @@ class TestDebitAnalyzer:
 
             mock_print.assert_called_once_with("¥15,000")
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     def test_get_monthly_summary(self):
         """月別サマリの取得"""
@@ -197,7 +197,7 @@ class TestDebitAnalyzer:
             assert monthly_summary["2024-02"]["total"] == 12000
             assert monthly_summary["2024-02"]["count"] == 1
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     def test_get_company_summary(self):
         """会社別サマリの取得"""
@@ -218,7 +218,7 @@ class TestDebitAnalyzer:
             assert company_summary["テスト会社B"]["total"] == 5000
             assert company_summary["テスト会社B"]["count"] == 1
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("builtins.print")
     def test_print_detailed_results_empty_data(self, mock_print):
@@ -252,7 +252,7 @@ class TestDebitAnalyzer:
             # 複数回のprint呼び出しを確認
             assert mock_print.call_count > 0
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("plotly.express.bar")
     @patch("pandas.DataFrame")
@@ -288,7 +288,7 @@ class TestDebitAnalyzer:
             assert result == mock_fig
             mock_bar.assert_called_once()
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("plotly.graph_objects.Figure")
     def test_create_company_pie_chart_empty_data(self, mock_figure):
@@ -323,7 +323,7 @@ class TestDebitAnalyzer:
             assert result == mock_fig
             mock_figure.assert_called_once()
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
     @patch("plotly.subplots.make_subplots")
     def test_create_combined_dashboard_empty_data(self, mock_subplots):
@@ -355,7 +355,7 @@ class TestDebitAnalyzer:
             assert hasattr(result, "show")  # plotly figure の特徴的なメソッドをチェック
             assert hasattr(result, "data")  # figureのdataプロパティが存在することを確認
         finally:
-            os.unlink(csv_file)
+            Path(csv_file).unlink()
 
 
 if __name__ == "__main__":

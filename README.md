@@ -94,29 +94,29 @@ uv sync
 
 ```bash
 # 今月の口座振替情報を取得
-uv run main.py
+uv run gmail_debit_collector.py
 
 # 合計金額のみを表示（簡潔な出力）
-uv run main.py --summary-only
-uv run main.py -s
+uv run gmail_debit_collector.py --summary-only
+uv run gmail_debit_collector.py -s
 
 # 過去1年分の口座振替情報を取得
-uv run main.py --year
-uv run main.py -y
+uv run gmail_debit_collector.py --year
+uv run gmail_debit_collector.py -y
 ```
 
 ### データ分析・グラフ表示
 
 ```bash
 # メール取得 + データ分析・グラフ表示
-uv run main.py --analyze
-uv run main.py -a
+uv run gmail_debit_collector.py --analyze
+uv run gmail_debit_collector.py -a
 
 # 過去1年分の取得 + 分析
-uv run main.py --year --analyze
+uv run gmail_debit_collector.py --year --analyze
 
 # 分析のみ実行（メール取得なし）
-uv run main.py --analyze-only
+uv run gmail_debit_collector.py --analyze-only
 
 # 分析モジュール単体実行
 uv run analyzer.py
@@ -126,7 +126,7 @@ uv run analyzer.py
 
 ```bash
 # 基本実行
-$ uv run main.py
+$ uv run gmail_debit_collector.py
 INFO - 口座振替情報の取得を開始します
 INFO - 既存の結果ファイルを確認: result_debit_2025-01-15.csv
 INFO - 2件の既存データが見つかりました（金額0を除外後: 2件）
@@ -136,7 +136,7 @@ INFO - 2件の既存データが見つかりました（金額0を除外後: 2�
 今月の口座振替合計：¥11,700
 
 # 分析付き実行
-$ uv run main.py --analyze
+$ uv run gmail_debit_collector.py --analyze
 INFO - 口座振替情報の取得を開始します
 ==================================================
 データ分析を開始します...
@@ -171,9 +171,9 @@ INFO - 口座振替情報の取得を開始します
 
 ```
 gmail-debit-client/
-├── main.py                    # メインスクリプト
+├── gmail_debit_collector.py   # メインスクリプト
 ├── analyzer.py                # データ分析・可視化
-├── test_main.py              # mainのテスト
+├── test_gmail_debit_collector.py # メインスクリプトのテスト
 ├── test_analyzer.py          # analyzerのテスト  
 ├── credentials.json          # Gmail API認証ファイル（要設定）
 ├── token.pickle              # 認証トークン（自動生成）
@@ -218,7 +218,7 @@ google.auth.exceptions.RefreshError
 A: `token.pickle` を削除して再認証してください。
 ```bash
 rm token.pickle
-uv run main.py
+uv run gmail_debit_collector.py
 ```
 
 **Q: メールが見つからない**
@@ -241,7 +241,7 @@ uv sync
 
 ### ログレベル設定
 
-デバッグ情報が必要な場合は、main.pyの先頭でログレベルを変更：
+デバッグ情報が必要な場合は、gmail_debit_collector.pyの先頭でログレベルを変更：
 
 ```python
 logging.basicConfig(

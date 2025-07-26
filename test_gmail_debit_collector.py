@@ -4,7 +4,7 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from main import (
+from gmail_debit_collector import (
     authenticate_gmail,
     display_cached_results,
     display_new_results,
@@ -113,7 +113,7 @@ class TestIsValidSender:
 
 
 class TestExtractDebitInfoFromMessage:
-    @patch("main.get_message_body")
+    @patch("gmail_debit_collector.get_message_body")
     def test_extract_debit_info_from_message_success(self, mock_get_body):
         # モックサービスとメッセージデータ
         mock_service = Mock()
@@ -139,7 +139,7 @@ class TestExtractDebitInfoFromMessage:
         expected = {"年月": "2024-01", "振替先": "テスト株式会社", "金額": "10000"}
         assert result == expected
 
-    @patch("main.get_message_body")
+    @patch("gmail_debit_collector.get_message_body")
     def test_extract_debit_info_from_message_invalid_sender(self, mock_get_body):
         mock_service = Mock()
         mock_msg_data = {
@@ -153,7 +153,7 @@ class TestExtractDebitInfoFromMessage:
         result = extract_debit_info_from_message(mock_service, msg, year_month)
         assert result is None
 
-    @patch("main.get_message_body")
+    @patch("gmail_debit_collector.get_message_body")
     def test_extract_debit_info_from_message_no_match(self, mock_get_body):
         mock_service = Mock()
         mock_msg_data = {
@@ -276,7 +276,7 @@ class TestSearchGmailMessages:
 
 
 class TestExtractDebitInfoFromMessages:
-    @patch("main.extract_debit_info_from_message")
+    @patch("gmail_debit_collector.extract_debit_info_from_message")
     def test_extract_debit_info_from_messages_success(self, mock_extract):
         mock_service = Mock()
         messages = [{"id": "msg1"}, {"id": "msg2"}, {"id": "msg3"}]
@@ -310,7 +310,7 @@ class TestSaveResultsToCsv:
 
         result_file = save_results_to_csv(extracted, None, [])
 
-        assert result_file == "result_debit_2024-01-15.csv"
+        assert result_file == "outputs/result_debit_2024-01-15.csv"
         mock_file.assert_called()
 
     def test_save_results_to_csv_empty_data(self):
@@ -371,7 +371,7 @@ class TestDisplayCachedResults:
 
 class TestGetCurrentMonthInfo:
     def test_get_current_month_info(self):
-        with patch("main.datetime.date") as mock_date:
+        with patch("gmail_debit_collector.datetime.date") as mock_date:
             mock_today = Mock()
             mock_today.replace.return_value = Mock()
             mock_today.strftime.return_value = "2024-01"
@@ -510,14 +510,14 @@ class TestSearchGmailMessagesForMonth:
 
 class TestGetOneYearInfo:
     def test_get_one_year_info(self):
-        with patch("main.datetime.date") as mock_date:
+        with patch("gmail_debit_collector.datetime.date") as mock_date:
             mock_today = Mock()
             mock_one_year_ago = Mock()
 
             mock_date.today.return_value = mock_today
 
             # datetime.timedelta をモック
-            with patch("main.datetime.timedelta") as mock_timedelta:
+            with patch("gmail_debit_collector.datetime.timedelta") as mock_timedelta:
                 mock_timedelta.return_value = Mock()
                 mock_today.__sub__ = Mock(return_value=mock_one_year_ago)
 
@@ -533,10 +533,10 @@ class TestGetOneYearInfo:
 
 
 class TestAuthenticateGmail:
-    @patch("main.os.path.exists")
-    @patch("main.open", new_callable=mock_open)
-    @patch("main.pickle.load")
-    @patch("main.build")
+    @patch("gmail_debit_collector.os.path.exists")
+    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.pickle.load")
+    @patch("gmail_debit_collector.build")
     def test_authenticate_gmail_with_valid_token(
         self, mock_build, mock_pickle_load, mock_file, mock_exists
     ):
@@ -553,11 +553,11 @@ class TestAuthenticateGmail:
         assert result == mock_service
         mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds)
 
-    @patch("main.os.path.exists")
-    @patch("main.open", new_callable=mock_open)
-    @patch("main.pickle")
-    @patch("main.build")
-    @patch("main.InstalledAppFlow.from_client_secrets_file")
+    @patch("gmail_debit_collector.os.path.exists")
+    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.pickle")
+    @patch("gmail_debit_collector.build")
+    @patch("gmail_debit_collector.InstalledAppFlow.from_client_secrets_file")
     def test_authenticate_gmail_no_token(
         self, mock_flow_class, mock_build, mock_pickle, mock_file, mock_exists
     ):
@@ -576,12 +576,12 @@ class TestAuthenticateGmail:
         mock_flow.run_local_server.assert_called_once_with(port=0)
         mock_pickle.dump.assert_called_once()
 
-    @patch("main.os.path.exists")
-    @patch("main.open", new_callable=mock_open)
-    @patch("main.pickle.load")
-    @patch("main.pickle.dump")
-    @patch("main.Request")
-    @patch("main.build")
+    @patch("gmail_debit_collector.os.path.exists")
+    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.pickle.load")
+    @patch("gmail_debit_collector.pickle.dump")
+    @patch("gmail_debit_collector.Request")
+    @patch("gmail_debit_collector.build")
     def test_authenticate_gmail_expired_token_refresh(
         self,
         mock_build,

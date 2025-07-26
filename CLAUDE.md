@@ -11,19 +11,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 基本実行（メール取得のみ）
 ```bash
-uv run main.py 
+uv run gmail_debit_collector.py 
 ```
 
 ### メール取得 + データ分析・グラフ表示
 ```bash
-uv run main.py --analyze
+uv run gmail_debit_collector.py --analyze
 # または
-uv run main.py -a
+uv run gmail_debit_collector.py -a
 ```
 
 ### データ分析のみ実行（メール取得なし）
 ```bash
-uv run main.py --analyze-only
+uv run gmail_debit_collector.py --analyze-only
 ```
 
 ### 分析モジュール単体実行

@@ -40,22 +40,26 @@ class TestDebitAnalyzer:
         finally:
             Path(csv_file).unlink()
 
-    @patch("glob.glob")
-    def test_find_latest_csv_success(self, mock_glob):
+    @patch("analyzer.sorted")
+    @patch("analyzer.Path.glob")
+    @patch("analyzer.Path.mkdir")
+    def test_find_latest_csv_success(self, mock_mkdir, mock_glob, mock_sorted):
         """最新のCSVファイルを正常に見つける"""
-        mock_glob.return_value = [
-            "result_debit_2024-01-15.csv",
-            "result_debit_2024-01-10.csv",
-            "result_debit_2024-01-20.csv",
-        ]
+        # Pathオブジェクトのモック
+        mock_path = Mock()
+        mock_path.__str__ = Mock(return_value="result_debit_2024-01-20.csv")
+
+        mock_glob.return_value = [mock_path]
+        mock_sorted.return_value = [mock_path]  # sortedの結果をモック
 
         analyzer = DebitAnalyzer.__new__(DebitAnalyzer)
         result = analyzer._find_latest_csv()
 
         assert result == "result_debit_2024-01-20.csv"
 
-    @patch("glob.glob")
-    def test_find_latest_csv_no_files(self, mock_glob):
+    @patch("analyzer.Path.glob")
+    @patch("analyzer.Path.mkdir")
+    def test_find_latest_csv_no_files(self, mock_mkdir, mock_glob):
         """CSVファイルが見つからない場合のエラー"""
         mock_glob.return_value = []
 

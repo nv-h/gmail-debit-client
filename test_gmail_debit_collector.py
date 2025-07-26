@@ -175,14 +175,17 @@ class TestExtractDebitInfoFromMessage:
 
 
 class TestLoadExistingCacheData:
-    @patch("glob.glob")
-    @patch("os.path.exists")
-    @patch("builtins.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.Path.glob")
+    @patch("gmail_debit_collector.Path.exists")
+    @patch("gmail_debit_collector.Path.mkdir")
+    @patch("gmail_debit_collector.Path.open", new_callable=mock_open)
     def test_load_existing_cache_data_with_cache(
-        self, mock_file, mock_exists, mock_glob
+        self, mock_file, mock_mkdir, mock_exists, mock_glob
     ):
         # ファイルが存在する場合のテスト
-        mock_glob.return_value = ["result_debit_2024-01-15.csv"]
+        mock_path_obj = Mock()
+        mock_path_obj.__str__ = Mock(return_value="result_debit_2024-01-15.csv")
+        mock_glob.return_value = [mock_path_obj]
         mock_exists.return_value = True
 
         csv_content = """# cached_at: 2024-01-15
@@ -208,8 +211,9 @@ class TestLoadExistingCacheData:
             assert len(result_rows) == 1
             assert result_rows[0]["年月"] == "2024-01"
 
-    @patch("glob.glob")
-    def test_load_existing_cache_data_no_files(self, mock_glob):
+    @patch("gmail_debit_collector.Path.glob")
+    @patch("gmail_debit_collector.Path.mkdir")
+    def test_load_existing_cache_data_no_files(self, mock_mkdir, mock_glob):
         mock_glob.return_value = []
 
         result_file, result_created_at, result_rows, result_files = (
@@ -297,11 +301,11 @@ class TestExtractDebitInfoFromMessages:
 
 class TestSaveResultsToCsv:
     @patch("datetime.date")
-    @patch("os.path.exists")
-    @patch("builtins.open", new_callable=mock_open)
-    @patch("os.remove")
+    @patch("gmail_debit_collector.Path.exists")
+    @patch("gmail_debit_collector.Path.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.Path.unlink")
     def test_save_results_to_csv_new_file(
-        self, mock_remove, mock_file, mock_exists, mock_date
+        self, mock_unlink, mock_file, mock_exists, mock_date
     ):
         mock_date.today.return_value.strftime.return_value = "2024-01-15"
         mock_exists.return_value = False
@@ -533,8 +537,8 @@ class TestGetOneYearInfo:
 
 
 class TestAuthenticateGmail:
-    @patch("gmail_debit_collector.os.path.exists")
-    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.Path.exists")
+    @patch("gmail_debit_collector.Path.open", new_callable=mock_open)
     @patch("gmail_debit_collector.pickle.load")
     @patch("gmail_debit_collector.build")
     def test_authenticate_gmail_with_valid_token(
@@ -553,8 +557,8 @@ class TestAuthenticateGmail:
         assert result == mock_service
         mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds)
 
-    @patch("gmail_debit_collector.os.path.exists")
-    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.Path.exists")
+    @patch("gmail_debit_collector.Path.open", new_callable=mock_open)
     @patch("gmail_debit_collector.pickle")
     @patch("gmail_debit_collector.build")
     @patch("gmail_debit_collector.InstalledAppFlow.from_client_secrets_file")
@@ -576,8 +580,8 @@ class TestAuthenticateGmail:
         mock_flow.run_local_server.assert_called_once_with(port=0)
         mock_pickle.dump.assert_called_once()
 
-    @patch("gmail_debit_collector.os.path.exists")
-    @patch("gmail_debit_collector.open", new_callable=mock_open)
+    @patch("gmail_debit_collector.Path.exists")
+    @patch("gmail_debit_collector.Path.open", new_callable=mock_open)
     @patch("gmail_debit_collector.pickle.load")
     @patch("gmail_debit_collector.pickle.dump")
     @patch("gmail_debit_collector.Request")

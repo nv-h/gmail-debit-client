@@ -200,6 +200,16 @@ gmail-debit-client/
 | `outputs/company_pie_chart.html` | 振替先別円グラフ | HTML |
 | `outputs/dashboard.html` | 統合ダッシュボード | HTML |
 
+## Copilotくん提案の「💡今後の展開アイデア」
+
+気が向いたら実装するかも(主にClaude Codeくん or Copilotくんが)
+
+| アイデア | 内容 | 
+| --- | --- |
+| 通知機能の追加 | 月末にSlackやDiscordへ自動通知する機能（Webhook連携） | 
+| 複数銀行対応 | メール送信元や本文形式の違いに対応した抽象化 | 
+| FastAPI化 | Web UIでCSVやグラフを閲覧できるようにする | 
+| PyPIパッケージ化 | pip install gmail-debit-client で使えるようにする | 
 
 ## トラブルシューティング
 

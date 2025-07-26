@@ -24,30 +24,23 @@ class TestGetMessageBody:
     def test_get_message_body_from_body_data(self):
         # テスト用のペイロード（base64エンコードされたデータ）
         test_text = "テストメール内容"
-        encoded_data = base64.urlsafe_b64encode(test_text.encode("utf-8")).decode("ascii")
+        encoded_data = base64.urlsafe_b64encode(test_text.encode("utf-8")).decode(
+            "ascii"
+        )
 
-        payload = {
-            "body": {
-                "data": encoded_data
-            }
-        }
+        payload = {"body": {"data": encoded_data}}
 
         result = get_message_body(payload)
         assert result == test_text
 
     def test_get_message_body_from_parts(self):
         test_text = "テストメール内容"
-        encoded_data = base64.urlsafe_b64encode(test_text.encode("utf-8")).decode("ascii")
+        encoded_data = base64.urlsafe_b64encode(test_text.encode("utf-8")).decode(
+            "ascii"
+        )
 
         payload = {
-            "parts": [
-                {
-                    "mimeType": "text/plain",
-                    "body": {
-                        "data": encoded_data
-                    }
-                }
-            ]
+            "parts": [{"mimeType": "text/plain", "body": {"data": encoded_data}}]
         }
 
         result = get_message_body(payload)
@@ -66,11 +59,7 @@ class TestGetMessageBody:
 
         mock_detect.return_value = {"encoding": "shift_jis", "confidence": 0.8}
 
-        payload = {
-            "body": {
-                "data": encoded_data
-            }
-        }
+        payload = {"body": {"data": encoded_data}}
 
         result = get_message_body(payload)
         assert result == test_text
@@ -98,33 +87,23 @@ class TestValidateAmount:
 
 class TestIsValidSender:
     def test_is_valid_sender_exact_match(self):
-        headers = [
-            {"name": "From", "value": "post_master@netbk.co.jp"}
-        ]
+        headers = [{"name": "From", "value": "post_master@netbk.co.jp"}]
         assert is_valid_sender(headers) == True
 
     def test_is_valid_sender_domain_match(self):
-        headers = [
-            {"name": "From", "value": "test@netbk.co.jp"}
-        ]
+        headers = [{"name": "From", "value": "test@netbk.co.jp"}]
         assert is_valid_sender(headers) == True
 
     def test_is_valid_sender_invalid(self):
-        headers = [
-            {"name": "From", "value": "spam@example.com"}
-        ]
+        headers = [{"name": "From", "value": "spam@example.com"}]
         assert is_valid_sender(headers) == False
 
     def test_is_valid_sender_case_insensitive(self):
-        headers = [
-            {"name": "FROM", "value": "POST_MASTER@NETBK.CO.JP"}
-        ]
+        headers = [{"name": "FROM", "value": "POST_MASTER@NETBK.CO.JP"}]
         assert is_valid_sender(headers) == True
 
     def test_is_valid_sender_no_from_header(self):
-        headers = [
-            {"name": "Subject", "value": "テスト"}
-        ]
+        headers = [{"name": "Subject", "value": "テスト"}]
         assert is_valid_sender(headers) == False
 
 
@@ -135,9 +114,7 @@ class TestExtractDebitInfoFromMessage:
         mock_service = Mock()
         mock_msg_data = {
             "payload": {
-                "headers": [
-                    {"name": "From", "value": "post_master@netbk.co.jp"}
-                ]
+                "headers": [{"name": "From", "value": "post_master@netbk.co.jp"}]
             }
         }
         mock_service.users().messages().get().execute.return_value = mock_msg_data
@@ -154,22 +131,14 @@ class TestExtractDebitInfoFromMessage:
 
         result = extract_debit_info_from_message(mock_service, msg, year_month)
 
-        expected = {
-            "年月": "2024-01",
-            "振替先": "テスト株式会社",
-            "金額": "10000"
-        }
+        expected = {"年月": "2024-01", "振替先": "テスト株式会社", "金額": "10000"}
         assert result == expected
 
     @patch("main.get_message_body")
     def test_extract_debit_info_from_message_invalid_sender(self, mock_get_body):
         mock_service = Mock()
         mock_msg_data = {
-            "payload": {
-                "headers": [
-                    {"name": "From", "value": "spam@example.com"}
-                ]
-            }
+            "payload": {"headers": [{"name": "From", "value": "spam@example.com"}]}
         }
         mock_service.users().messages().get().execute.return_value = mock_msg_data
 
@@ -184,9 +153,7 @@ class TestExtractDebitInfoFromMessage:
         mock_service = Mock()
         mock_msg_data = {
             "payload": {
-                "headers": [
-                    {"name": "From", "value": "post_master@netbk.co.jp"}
-                ]
+                "headers": [{"name": "From", "value": "post_master@netbk.co.jp"}]
             }
         }
         mock_service.users().messages().get().execute.return_value = mock_msg_data
@@ -198,11 +165,7 @@ class TestExtractDebitInfoFromMessage:
 
         result = extract_debit_info_from_message(mock_service, msg, year_month)
 
-        expected = {
-            "年月": "2024-01",
-            "振替先": "[不明]",
-            "金額": "0"
-        }
+        expected = {"年月": "2024-01", "振替先": "[不明]", "金額": "0"}
         assert result == expected
 
 
@@ -210,7 +173,9 @@ class TestLoadExistingCacheData:
     @patch("glob.glob")
     @patch("os.path.exists")
     @patch("builtins.open", new_callable=mock_open)
-    def test_load_existing_cache_data_with_cache(self, mock_file, mock_exists, mock_glob):
+    def test_load_existing_cache_data_with_cache(
+        self, mock_file, mock_exists, mock_glob
+    ):
         # ファイルが存在する場合のテスト
         mock_glob.return_value = ["result_debit_2024-01-15.csv"]
         mock_exists.return_value = True
@@ -226,10 +191,12 @@ class TestLoadExistingCacheData:
         with patch("csv.DictReader") as mock_reader:
             mock_reader.return_value = [
                 {"年月": "2024-01", "振替先": "テスト会社", "金額": "10000"},
-                {"年月": "2024-02", "振替先": "別の会社", "金額": "5000"}
+                {"年月": "2024-02", "振替先": "別の会社", "金額": "5000"},
             ]
 
-            result_file, result_created_at, result_rows, result_files = load_existing_cache_data("2024-01")
+            result_file, result_created_at, result_rows, result_files = (
+                load_existing_cache_data("2024-01")
+            )
 
             assert result_file == "result_debit_2024-01-15.csv"
             assert result_created_at == "2024-01-15"
@@ -240,7 +207,9 @@ class TestLoadExistingCacheData:
     def test_load_existing_cache_data_no_files(self, mock_glob):
         mock_glob.return_value = []
 
-        result_file, result_created_at, result_rows, result_files = load_existing_cache_data("2024-01")
+        result_file, result_created_at, result_rows, result_files = (
+            load_existing_cache_data("2024-01")
+        )
 
         assert result_file is None
         assert result_created_at is None
@@ -275,10 +244,7 @@ class TestSearchGmailMessages:
     def test_search_gmail_messages_success(self):
         mock_service = Mock()
         mock_service.users().messages().list().execute.return_value = {
-            "messages": [
-                {"id": "msg1"},
-                {"id": "msg2"}
-            ]
+            "messages": [{"id": "msg1"}, {"id": "msg2"}]
         }
 
         query_date = "2024/01/01"
@@ -290,7 +256,9 @@ class TestSearchGmailMessages:
 
         # クエリが正しく構築されているかチェック
         expected_query = "after:2024/01/01 subject:(口座振替)"
-        mock_service.users().messages().list.assert_called_with(userId="me", q=expected_query)
+        mock_service.users().messages().list.assert_called_with(
+            userId="me", q=expected_query
+        )
 
     def test_search_gmail_messages_no_results(self):
         mock_service = Mock()
@@ -312,7 +280,7 @@ class TestExtractDebitInfoFromMessages:
         mock_extract.side_effect = [
             {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
             None,  # 無効なメッセージ
-            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"}
+            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"},
         ]
 
         result = extract_debit_info_from_messages(mock_service, messages, "2024-01")
@@ -327,13 +295,13 @@ class TestSaveResultsToCsv:
     @patch("os.path.exists")
     @patch("builtins.open", new_callable=mock_open)
     @patch("os.remove")
-    def test_save_results_to_csv_new_file(self, mock_remove, mock_file, mock_exists, mock_date):
+    def test_save_results_to_csv_new_file(
+        self, mock_remove, mock_file, mock_exists, mock_date
+    ):
         mock_date.today.return_value.strftime.return_value = "2024-01-15"
         mock_exists.return_value = False
 
-        extracted = [
-            {"年月": "2024-01", "振替先": "テスト会社", "金額": "10000"}
-        ]
+        extracted = [{"年月": "2024-01", "振替先": "テスト会社", "金額": "10000"}]
 
         result_file = save_results_to_csv(extracted, None, [])
 
@@ -350,7 +318,7 @@ class TestDisplayNewResults:
     def test_display_new_results_with_data(self, mock_print):
         extracted = [
             {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
-            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"}
+            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"},
         ]
 
         display_new_results(extracted, summary_only=False)
@@ -362,7 +330,7 @@ class TestDisplayNewResults:
     def test_display_new_results_summary_only(self, mock_print):
         extracted = [
             {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
-            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"}
+            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"},
         ]
 
         display_new_results(extracted, summary_only=True)
@@ -380,7 +348,7 @@ class TestDisplayCachedResults:
     def test_display_cached_results_summary_only(self, mock_print):
         result_rows = [
             {"年月": "2024-01", "振替先": "会社A", "金額": "1000"},
-            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"}
+            {"年月": "2024-01", "振替先": "会社B", "金額": "2000"},
         ]
 
         display_cached_results("test.csv", result_rows, summary_only=True)
@@ -389,9 +357,7 @@ class TestDisplayCachedResults:
 
     @patch("builtins.print")
     def test_display_cached_results_detailed(self, mock_print):
-        result_rows = [
-            {"年月": "2024-01", "振替先": "会社A", "金額": "1000"}
-        ]
+        result_rows = [{"年月": "2024-01", "振替先": "会社A", "金額": "1000"}]
 
         display_cached_results("test.csv", result_rows, summary_only=False)
 

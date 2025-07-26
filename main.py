@@ -159,35 +159,38 @@ def load_existing_cache_data(year_month, year_mode=False):
     return result_file, result_created_at, result_rows, result_files
 
 
-def display_cached_results(result_file, result_rows, summary_only=False, year_mode=False):
-    """キャッシュされた結果を表示する（金額0の行を除外）"""
+def display_cached_results(
+    result_file, result_rows, summary_only=False, year_mode=False
+):
+    """キャッシュされた結果を表示する（analyzer.pyを使用して重複を解消）"""
     # 金額0の行を除外
     result_rows_filtered = filter_zero_amount_rows(result_rows)
 
-    logger.info(f"{len(result_rows)}件の既存データが見つかりました（金額0を除外後: {len(result_rows_filtered)}件）")
-    total = sum(float(row["金額"]) for row in result_rows_filtered)
+    logger.info(
+        f"{len(result_rows)}件の既存データが見つかりました（金額0を除外後: {len(result_rows_filtered)}件）"
+    )
 
     if summary_only:
+        total = sum(float(row["金額"]) for row in result_rows_filtered)
         print(f"¥{total:,.0f}")
-    elif year_mode:
-        print(f"結果({result_file})から取得:")
-        # 年月別にグループ化して表示
-        from collections import defaultdict
-        by_month = defaultdict(list)
-        for row in result_rows_filtered:
-            by_month[row["年月"]].append(row)
-
-        for month in sorted(by_month.keys()):
-            month_total = sum(float(row["金額"]) for row in by_month[month])
-            print(f"\n{month} (¥{month_total:,.0f})")
-            for row in by_month[month]:
-                print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-        print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
     else:
-        print(f"結果({result_file})から取得:")
-        for row in result_rows_filtered:
-            print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
-        print(f"今月の口座振替合計：¥{total:,.0f}")
+        try:
+            from analyzer import DebitAnalyzer
+
+            # 一時的にデータを作成してアナライザーを初期化
+            temp_analyzer = DebitAnalyzer.__new__(DebitAnalyzer)
+            temp_analyzer.data = result_rows_filtered
+            temp_analyzer.csv_file_path = result_file
+            temp_analyzer.print_detailed_results(
+                year_mode=year_mode, cached_source=result_file
+            )
+        except ImportError:
+            # Fallback display
+            total = sum(float(row["金額"]) for row in result_rows_filtered)
+            print(f"結果({result_file})から取得:")
+            for row in result_rows_filtered:
+                print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+            print(f"合計：¥{total:,.0f}")
 
 
 def get_search_query_date(result_created_at, first_day):
@@ -231,12 +234,16 @@ def get_missing_months_from_cache(result_rows, start_date, end_date):
 
     # 除外された月について警告
     if excluded_months:
-        logger.warning(f"2025年1月以前の{len(excluded_months)}ヶ月は金額データがないため検索対象外: {', '.join(excluded_months)}")
+        logger.warning(
+            f"2025年1月以前の{len(excluded_months)}ヶ月は金額データがないため検索対象外: {', '.join(excluded_months)}"
+        )
 
     # キャッシュにない月を特定（2025年1月以降のみ）
     missing_months = [month for month in all_months if month not in cached_months]
 
-    logger.info(f"検索対象{len(all_months)}ヶ月中、キャッシュ済み: {len([m for m in cached_months if m >= '2025-01'])}ヶ月、未取得: {len(missing_months)}ヶ月")
+    logger.info(
+        f"検索対象{len(all_months)}ヶ月中、キャッシュ済み: {len([m for m in cached_months if m >= '2025-01'])}ヶ月、未取得: {len(missing_months)}ヶ月"
+    )
     if missing_months:
         logger.info(f"未取得の月: {', '.join(missing_months)}")
 
@@ -340,7 +347,9 @@ def extract_debit_info_from_messages(service, messages, year_month, year_mode=Fa
     extracted = []
     for i, msg in enumerate(messages, 1):
         logger.debug(f"メール {i}/{len(messages)} を処理中...")
-        debit_info = extract_debit_info_from_message(service, msg, year_month, year_mode)
+        debit_info = extract_debit_info_from_message(
+            service, msg, year_month, year_mode
+        )
         if debit_info:
             extracted.append(debit_info)
             logger.debug(f"抽出完了: {debit_info['振替先']} - ¥{debit_info['金額']}")
@@ -379,7 +388,9 @@ def save_results_to_csv(extracted, result_file, result_files):
     old_excluded = len(old_rows) - len(old_rows_filtered)
     new_excluded = len(extracted) - len(extracted_filtered)
     if old_excluded > 0 or new_excluded > 0:
-        logger.info(f"金額0の行を除外: 既存データ {old_excluded}行, 新規データ {new_excluded}行")
+        logger.info(
+            f"金額0の行を除外: 既存データ {old_excluded}行, 新規データ {new_excluded}行"
+        )
 
     with open(new_result_file, "w", encoding=CSV_ENCODING, newline="") as f:
         f.write(f"# cached_at: {result_time}\n")
@@ -402,72 +413,76 @@ def save_results_to_csv(extracted, result_file, result_files):
 
 
 def display_merged_results(cached_rows, new_rows, summary_only=False):
-    """キャッシュデータと新規データをマージして表示する（金額0の行を除外）"""
+    """キャッシュデータと新規データをマージして表示する（analyzer.pyを使用して重複を解消）"""
     # 金額0の行を除外
     cached_rows_filtered = filter_zero_amount_rows(cached_rows)
     new_rows_filtered = filter_zero_amount_rows(new_rows)
 
     all_rows = cached_rows_filtered + new_rows_filtered
-    total = sum(float(row["金額"]) for row in all_rows)
 
     if summary_only:
+        total = sum(float(row["金額"]) for row in all_rows)
         print(f"¥{total:,.0f}")
     else:
-        # 年月別にグループ化して表示
-        from collections import defaultdict
-        by_month = defaultdict(list)
-        for row in all_rows:
-            by_month[row["年月"]].append(row)
+        try:
+            from analyzer import DebitAnalyzer
 
-        cached_months = set(row["年月"] for row in cached_rows_filtered)
-
-        print("過去1年分の口座振替情報:")
-        for month in sorted(by_month.keys()):
-            month_total = sum(float(row["金額"]) for row in by_month[month])
-            status = " (キャッシュ)" if month in cached_months else " (新規取得)"
-            print(f"\n{month} (¥{month_total:,.0f}){status}")
-            for row in by_month[month]:
-                print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-
-        print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
-        if new_rows_filtered:
-            new_total = sum(float(row["金額"]) for row in new_rows_filtered)
-            print(f"新規取得分：¥{new_total:,.0f}")
+            # 一時的にデータを作成してアナライザーを初期化
+            temp_analyzer = DebitAnalyzer.__new__(DebitAnalyzer)
+            temp_analyzer.data = all_rows
+            temp_analyzer.csv_file_path = "マージ結果"
+            temp_analyzer.print_detailed_results(
+                year_mode=True, new_count=len(new_rows_filtered)
+            )
+        except ImportError:
+            # Fallback display
+            total = sum(float(row["金額"]) for row in all_rows)
+            print(f"過去1年分の口座振替合計：¥{total:,.0f}")
+            if new_rows_filtered:
+                new_total = sum(float(row["金額"]) for row in new_rows_filtered)
+                print(f"新規取得分：¥{new_total:,.0f}")
 
 
 def display_new_results(extracted, summary_only=False, year_mode=False):
-    """新規取得した結果を表示する（金額0の行を除外）"""
+    """新規取得した結果を表示する（analyzer.pyを使用して重複を解消）"""
     # 金額0の行を除外
     extracted_filtered = filter_zero_amount_rows(extracted)
 
     if extracted_filtered:
-        total = sum(float(row["金額"]) for row in extracted_filtered)
         if summary_only:
+            total = sum(float(row["金額"]) for row in extracted_filtered)
             print(f"¥{total:,.0f}")
-        elif year_mode:
-            print("過去1年分の口座振替情報:")
-            # 年月別にグループ化して表示
-            from collections import defaultdict
-            by_month = defaultdict(list)
-            for row in extracted_filtered:
-                by_month[row["年月"]].append(row)
+        else:
+            try:
+                from analyzer import DebitAnalyzer
 
-            for month in sorted(by_month.keys()):
-                month_total = sum(float(row["金額"]) for row in by_month[month])
-                print(f"\n{month} (¥{month_total:,.0f})")
-                for row in by_month[month]:
-                    print(f"  {row['振替先']} ¥{float(row['金額']):,.0f}")
-            print(f"\n過去1年分の口座振替合計：¥{total:,.0f}")
-        else:
-            print("新規取得した口座振替情報:")
-            for row in extracted_filtered:
-                print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
-            print(f"今月の新規口座振替合計：¥{total:,.0f}")
+                # 一時的にデータを作成してアナライザーを初期化
+                temp_analyzer = DebitAnalyzer.__new__(DebitAnalyzer)
+                temp_analyzer.data = extracted_filtered
+                temp_analyzer.csv_file_path = "新規取得"
+                if year_mode:
+                    temp_analyzer.print_detailed_results(year_mode=True)
+                else:
+                    print("新規取得した口座振替情報:")
+                    temp_analyzer.print_detailed_results(year_mode=False)
+            except ImportError:
+                # Fallback display
+                total = sum(float(row["金額"]) for row in extracted_filtered)
+                for row in extracted_filtered:
+                    print(f"{row['年月']} {row['振替先']} ¥{float(row['金額']):,.0f}")
+                print(f"合計：¥{total:,.0f}")
     elif not summary_only:
-        if year_mode:
-            print("過去1年分の口座振替情報は見つかりませんでした")
-        else:
-            print("新しい口座振替情報は見つかりませんでした")
+        try:
+            from analyzer import DebitAnalyzer
+
+            temp_analyzer = DebitAnalyzer.__new__(DebitAnalyzer)
+            temp_analyzer.data = []
+            temp_analyzer.print_detailed_results(year_mode=year_mode)
+        except ImportError:
+            if year_mode:
+                print("過去1年分の口座振替情報は見つかりませんでした")
+            else:
+                print("新しい口座振替情報は見つかりませんでした")
     else:
         print("¥0")
 
@@ -509,20 +524,28 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
         if year_mode:
             # 年間モードの場合、欠けている月を特定
             today = datetime.date.today()
-            missing_months = get_missing_months_from_cache(result_rows, start_date, today)
+            missing_months = get_missing_months_from_cache(
+                result_rows, start_date, today
+            )
 
             # 全ての月がキャッシュにある場合はそのまま表示
             if not missing_months:
                 if result_rows:
-                    display_cached_results(result_file, result_rows, summary_only, year_mode=True)
+                    display_cached_results(
+                        result_file, result_rows, summary_only, year_mode=True
+                    )
                 return
 
             # 欠けている月のメッセージを取得
             extracted = []
             for missing_month in missing_months:
                 logger.info(f"{missing_month} のメッセージを検索中...")
-                monthly_messages = search_gmail_messages_for_month(service, missing_month)
-                monthly_extracted = extract_debit_info_from_messages(service, monthly_messages, missing_month, year_mode=True)
+                monthly_messages = search_gmail_messages_for_month(
+                    service, missing_month
+                )
+                monthly_extracted = extract_debit_info_from_messages(
+                    service, monthly_messages, missing_month, year_mode=True
+                )
                 extracted.extend(monthly_extracted)
 
         else:
@@ -538,7 +561,9 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
             messages = search_gmail_messages(service, query_date)
 
             # メッセージから口座振替情報を抽出
-            extracted = extract_debit_info_from_messages(service, messages, year_month, year_mode)
+            extracted = extract_debit_info_from_messages(
+                service, messages, year_month, year_mode
+            )
 
         # 結果をCSVに保存
         save_results_to_csv(extracted, result_file, result_files)
@@ -558,21 +583,78 @@ def fetch_mail_and_extract_info(service, summary_only=False, year_mode=False):
 
 def parse_arguments():
     """コマンドライン引数を解析する"""
-    parser = argparse.ArgumentParser(description="Gmailから口座振替情報を取得して集計します")
-    parser.add_argument(
-        "--summary-only", "-s",
-        action="store_true",
-        help="合計金額のみを表示（詳細な情報を省略）"
+    parser = argparse.ArgumentParser(
+        description="Gmailから口座振替情報を取得して集計します"
     )
     parser.add_argument(
-        "--year", "-y",
+        "--summary-only",
+        "-s",
         action="store_true",
-        help="過去1年分のメールを取得して集計"
+        help="合計金額のみを表示（詳細な情報を省略）",
+    )
+    parser.add_argument(
+        "--year", "-y", action="store_true", help="過去1年分のメールを取得して集計"
+    )
+    parser.add_argument(
+        "--analyze", "-a", action="store_true", help="CSVデータの分析とグラフ表示を実行"
+    )
+    parser.add_argument(
+        "--analyze-only",
+        action="store_true",
+        help="メール取得をスキップして分析のみ実行",
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-    service = authenticate_gmail()
-    fetch_mail_and_extract_info(service, summary_only=args.summary_only, year_mode=args.year)
+
+    # 分析のみ実行する場合
+    if args.analyze_only:
+        try:
+            from analyzer import DebitAnalyzer
+
+            analyzer = DebitAnalyzer()
+            analyzer.print_summary()
+            print("\n" + "=" * 50)
+            print("グラフを生成しています...")
+            analyzer.create_monthly_stacked_bar_chart(
+                save_path="monthly_stacked_chart.png", show_chart=True
+            )
+            analyzer.create_company_pie_chart(
+                save_path="company_pie_chart.png", show_chart=True
+            )
+        except ImportError:
+            print("分析機能を使用するには以下のパッケージが必要です:")
+            print("uv add matplotlib pandas japanize-matplotlib")
+        except Exception as e:
+            print(f"分析エラー: {e}")
+    else:
+        # メール取得処理
+        service = authenticate_gmail()
+        fetch_mail_and_extract_info(
+            service, summary_only=args.summary_only, year_mode=args.year
+        )
+
+        # 分析オプションが指定されている場合は分析も実行
+        if args.analyze:
+            try:
+                from analyzer import DebitAnalyzer
+
+                print("\n" + "=" * 50)
+                print("データ分析を開始します...")
+                analyzer = DebitAnalyzer()
+                analyzer.print_summary()
+                print("\n" + "=" * 50)
+                print("グラフを生成しています...")
+                analyzer.create_monthly_stacked_bar_chart(
+                    save_path="monthly_stacked_chart.png", show_chart=True
+                )
+                analyzer.create_company_pie_chart(
+                    save_path="company_pie_chart.png", show_chart=True
+                )
+            except ImportError:
+                print("分析機能を使用するには以下のパッケージが必要です:")
+                print("uv add matplotlib pandas japanize-matplotlib")
+            except Exception as e:
+                print(f"分析エラー: {e}")
